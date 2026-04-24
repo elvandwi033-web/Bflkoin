@@ -90,7 +90,7 @@ const client = new Client({
   ]
 });
 
-client.once('ready', () => {
+client.once('clientReady', () => {
   console.log('Bot aktif: ' + client.user.tag);
   const db = loadDB();
   if (db.users['ADMIN_085640241324'] && db.users['ADMIN_085640241324'].discordId === 'ADMIN_PLACEHOLDER') {
