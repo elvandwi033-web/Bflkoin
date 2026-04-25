@@ -1224,8 +1224,8 @@ client.on('messageCreate', async (message) => {
     if (!user) return message.reply('Belum terdaftar!');
     if (isStarving(user)) return message.reply('❌ Kamu kehabisan makan! Beli dulu dengan `!beli makan`');
 
-    const cost = 500;
-    if (user.balance < cost) return message.reply('Saldo BFL tidak cukup! Biaya mancing: **500 BFL**');
+    const cost = 1000;
+    if (user.balance < cost) return message.reply('Saldo BFL tidak cukup! Biaya mancing: **1000 BFL**');
 
     // #4: WR 50:50, admin 85%
     const isWin = Math.random() < (message.author.id === ADMIN_ID ? 0.85 : (user.isVIP ? 0.60 : 0.50));
@@ -1259,7 +1259,7 @@ client.on('messageCreate', async (message) => {
         { name: '📦 Disimpan di', value: 'Inventori → Jual dengan `!jual ikan`', inline: false },
         { name: '❤️ Sisa Nyawa', value: hungerBar(user.hunger), inline: false }
       )
-      .setFooter({ text: 'WR: ' + (user.isVIP ? '60%' : '50%') + ' | Biaya: 500 BFL' });
+      .setFooter({ text: 'WR: ' + (user.isVIP ? '60%' : '50%') + ' | Biaya: 1000 BFL' });
     return message.reply({ embeds: [embedMancing] });
   }
 
@@ -1313,8 +1313,8 @@ client.on('messageCreate', async (message) => {
     if (!user) return message.reply('Belum terdaftar!');
     if (isStarving(user)) return message.reply('❌ Kamu kehabisan makan! Beli dulu dengan `!beli makan`');
 
-    const cost = 200;
-    if (user.balance < cost) return message.reply('Saldo tidak cukup! Biaya tambang: **200 BFL**');
+    const cost = 1000;
+    if (user.balance < cost) return message.reply('Saldo tidak cukup! Biaya tambang: **1000 BFL**');
 
     // #4: WR 50:50, admin 85%
     const isWin = Math.random() < (message.author.id === ADMIN_ID ? 0.85 : (user.isVIP ? 0.60 : 0.50));
@@ -1346,7 +1346,7 @@ client.on('messageCreate', async (message) => {
             { name: '📉 Total Rugi', value: (cost + Math.abs(material.price)).toLocaleString('id-ID') + ' BFL', inline: true },
             { name: '❤️ Sisa Nyawa', value: hungerBar(user.hunger), inline: false }
           )
-          .setFooter({ text: 'Sial! Coba lagi... WR: ' + (user.isVIP ? '60%' : '50%') + ' | Biaya: 200 BFL' })
+          .setFooter({ text: 'Sial! Coba lagi... WR: ' + (user.isVIP ? '60%' : '50%') + ' | Biaya: 1000 BFL' })
       ]});
     }
 
