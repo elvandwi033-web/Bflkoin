@@ -23,8 +23,8 @@ const TAX_THRESHOLD = 20000;
 const TAX_RATE      = 0.20;
 const TAX_RATE_VIP  = 0.05;
 
-// VIP Duration: 20 menit
-const VIP_DURATION_MS = 20 * 60 * 1000;
+// VIP Duration: 5 menit
+const VIP_DURATION_MS = 5 * 60 * 10000
 
 // Uang awal saat registrasi
 const STARTING_BALANCE     = 1000000; // 1.000.000 BFL
