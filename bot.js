@@ -3445,6 +3445,91 @@ client.on('messageCreate', async (message) => {
       ]});
     }
   }
+  
+  // ======================== !tangkap / !hukum ========================
+  // Polisi menangkap, menyita barang, denda custom, & penjara custom
+  if (command === 'tangkap' || command === 'hukum') {
+    if (isDM) return message.reply('❌ Command ini hanya bisa digunakan di server!');
+    if (!user) return message.reply('❌ Belum terdaftar!');
+    ensureUserFields(user);
+
+    // Hanya Polisi atau Admin yang bisa menggunakan
+    const isPolice = user.fraksi === 'polisi' || message.author.id === ADMIN_ID;
+    if (!isPolice) return message.reply('❌ Hanya fraksi **Polisi** yang memiliki wewenang untuk menghukum!');
+
+    const target = message.mentions.users.first();
+    const denda = parseInt(args[1]);
+    const waktuMenit = parseInt(args[2]);
+
+    if (!target || isNaN(denda) || isNaN(waktuMenit) || denda < 0 || waktuMenit <= 0) {
+      return message.reply('❌ Format salah!\nGunakan: `!tangkap @user <denda_BFL> <waktu_penjara_menit>`\nContoh: `!tangkap @Budi 50000 15`');
+    }
+
+    if (target.id === message.author.id) return message.reply('❌ Kamu tidak bisa menangkap diri sendiri, kawan!');
+    if (target.bot) return message.reply('❌ Bot kebal dari hukum manusia!');
+
+    const targetUser = getUserByDiscordId(db, target.id);
+    if (!targetUser) return message.reply('❌ User ' + target.username + ' belum terdaftar di database!');
+    ensureUserFields(targetUser);
+
+    // Cek bukti: Apakah target punya barang bukti narkoba?
+    const sitaWeed = targetUser.drugInv.weed || 0;
+    const sitaMeth = targetUser.drugInv.meth || 0;
+    const totalDrugs = sitaWeed + sitaMeth;
+
+    if (totalDrugs <= 0) {
+      return message.reply('❌ **Tidak ada bukti!** ' + target.username + ' bersih dan tidak membawa narkoba di inventory mereka.');
+    }
+
+    // 1. Eksekusi Penyitaan Barang
+    targetUser.drugInv.weed = 0;
+    targetUser.drugInv.meth = 0;
+    if (!db.adminDrugInv) db.adminDrugInv = { weed: 0, meth: 0 };
+    db.adminDrugInv.weed += sitaWeed;
+    db.adminDrugInv.meth += sitaMeth;
+
+    // 2. Eksekusi Denda (Potong saldo)
+    let actualDenda = denda;
+    if (targetUser.balance < denda) {
+      actualDenda = targetUser.balance; // Kalau uang kurang, sita semua yang tersisa
+    }
+    targetUser.balance -= actualDenda;
+    sendToAdmin(db, actualDenda); // Denda masuk ke kas admin
+
+    // 3. Eksekusi Hukuman Penjara
+    targetUser.jailUntil = Date.now() + (waktuMenit * 60 * 1000);
+
+    saveDB(db);
+
+    // Kirim DM Notifikasi ke Tersangka
+    try {
+      await (await client.users.fetch(target.id)).send({ embeds: [
+        new EmbedBuilder()
+          .setTitle('🚔 KAMU DITANGKAP DAN DIHUKUM!')
+          .setColor(C_RED)
+          .setDescription('Kamu ditangkap oleh **' + message.author.username + '** karena membawa barang terlarang!')
+          .addFields(
+            { name: '📦 Narkoba Disita', value: '🌿 Weed: ' + sitaWeed + ' pcs\n💎 Meth: ' + sitaMeth + ' pcs', inline: false },
+            { name: '💸 Denda Dibayar', value: '-' + actualDenda.toLocaleString('id-ID') + ' BFL', inline: true },
+            { name: '🔒 Waktu Penjara', value: waktuMenit + ' menit', inline: true }
+          )
+          .setFooter({ text: 'Barang bukti telah disita dan kamu dimasukkan ke penjara.' })
+      ]});
+    } catch(e) {}
+
+    // Pengumuman di Server
+    return message.channel.send({ embeds: [
+      new EmbedBuilder()
+        .setTitle('🚔 TERSANGKA BERHASIL DITANGKAP!')
+        .setColor(C_GREEN)
+        .setDescription('<@' + message.author.id + '> telah menangkap dan mengadili <@' + target.id + '>!')
+        .addFields(
+          { name: '📦 Bukti Disita', value: '🌿 ' + sitaWeed + ' Weed | 💎 ' + sitaMeth + ' Meth', inline: true },
+          { name: '💸 Denda', value: actualDenda.toLocaleString('id-ID') + ' BFL', inline: true },
+          { name: '🔒 Hukuman Penjara', value: waktuMenit + ' menit', inline: true }
+        )
+    ]});
+  }
 
   // ======================== !statuspenjara ========================
   if (command === 'statuspenjara' || command === 'cekpenjara') {
