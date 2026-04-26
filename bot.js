@@ -3300,6 +3300,9 @@ client.on('messageCreate', async (message) => {
     if (!user.drugInv[jenis] || user.drugInv[jenis] < jumlah) {
       return message.reply('❌ Kamu hanya punya **' + (user.drugInv[jenis] || 0) + ' pcs ' + drug.name + '**! Kurang dari ' + jumlah + '.');
     }
+    // Rekam jejak untuk barang bukti polisi
+    user.lastJual = { jenis: jenis, jumlah: jumlah };
+
 
     // Roll WR — pakai gameConfig jika ada, fallback ke 75%
     const wrJualDrug = (db.gameConfig && db.gameConfig.wrJualdrug != null) ? db.gameConfig.wrJualdrug : DRUG_SELL_WR;
@@ -3446,8 +3449,8 @@ client.on('messageCreate', async (message) => {
     }
   }
   
-  // ======================== !tangkap / !hukum ========================
-  // Polisi menangkap, menyita barang, denda custom, & penjara custom
+    // ======================== !tangkap / !hukum ========================
+  // Polisi menangkap, menyita barang (berdasarkan jumlah jual terakhir), denda custom, & penjara custom
   if (command === 'tangkap' || command === 'hukum') {
     if (isDM) return message.reply('❌ Command ini hanya bisa digunakan di server!');
     if (!user) return message.reply('❌ Belum terdaftar!');
@@ -3465,25 +3468,35 @@ client.on('messageCreate', async (message) => {
       return message.reply('❌ Format salah!\nGunakan: `!tangkap @user <denda_BFL> <waktu_penjara_menit>`\nContoh: `!tangkap @Budi 50000 15`');
     }
 
-    if (target.id === message.author.id) return message.reply('❌ Kamu tidak bisa menangkap diri sendiri, kawan!');
+    if (target.id === message.author.id) return message.reply('❌ Kamu tidak bisa menangkap diri sendiri!');
     if (target.bot) return message.reply('❌ Bot kebal dari hukum manusia!');
 
     const targetUser = getUserByDiscordId(db, target.id);
-    if (!targetUser) return message.reply('❌ User ' + target.username + ' belum terdaftar di database!');
+    if (!targetUser) return message.reply('❌ User ' + target.username + ' belum terdaftar!');
     ensureUserFields(targetUser);
 
-    // Cek bukti: Apakah target punya barang bukti narkoba?
-    const sitaWeed = targetUser.drugInv.weed || 0;
-    const sitaMeth = targetUser.drugInv.meth || 0;
-    const totalDrugs = sitaWeed + sitaMeth;
-
-    if (totalDrugs <= 0) {
-      return message.reply('❌ **Tidak ada bukti!** ' + target.username + ' bersih dan tidak membawa narkoba di inventory mereka.');
+    // Cek bukti: Apakah target punya catatan penjualan terakhir?
+    if (!targetUser.lastJual) {
+      return message.reply('❌ Tidak ada catatan ' + target.username + ' melakukan transaksi narkoba baru-baru ini.');
     }
 
-    // 1. Eksekusi Penyitaan Barang
-    targetUser.drugInv.weed = 0;
-    targetUser.drugInv.meth = 0;
+    // 1. Eksekusi Penyitaan Barang (Hanya sebesar transaksi terakhir)
+    let sitaWeed = 0;
+    let sitaMeth = 0;
+
+    if (targetUser.lastJual.jenis === 'weed') {
+      sitaWeed = Math.min(targetUser.drugInv.weed || 0, targetUser.lastJual.jumlah);
+      targetUser.drugInv.weed -= sitaWeed;
+    } else if (targetUser.lastJual.jenis === 'meth') {
+      sitaMeth = Math.min(targetUser.drugInv.meth || 0, targetUser.lastJual.jumlah);
+      targetUser.drugInv.meth -= sitaMeth;
+    }
+
+    if (sitaWeed <= 0 && sitaMeth <= 0) {
+      return message.reply('❌ ' + target.username + ' sudah tidak memiliki sisa barang di inventory-nya. Tidak ada bukti fisik yang bisa disita!');
+    }
+
+    // Masukkan barang sitaan ke inventory admin
     if (!db.adminDrugInv) db.adminDrugInv = { weed: 0, meth: 0 };
     db.adminDrugInv.weed += sitaWeed;
     db.adminDrugInv.meth += sitaMeth;
@@ -3491,13 +3504,16 @@ client.on('messageCreate', async (message) => {
     // 2. Eksekusi Denda (Potong saldo)
     let actualDenda = denda;
     if (targetUser.balance < denda) {
-      actualDenda = targetUser.balance; // Kalau uang kurang, sita semua yang tersisa
+      actualDenda = targetUser.balance; // Kalau uang kurang, kuras semua yang tersisa
     }
     targetUser.balance -= actualDenda;
-    sendToAdmin(db, actualDenda); // Denda masuk ke kas admin
+    sendToAdmin(db, actualDenda);
 
     // 3. Eksekusi Hukuman Penjara
     targetUser.jailUntil = Date.now() + (waktuMenit * 60 * 1000);
+
+    // Reset catatan kriminal setelah ditangkap agar tidak ditangkap berkali-kali untuk kasus yang sama
+    targetUser.lastJual = null;
 
     saveDB(db);
 
@@ -3507,13 +3523,13 @@ client.on('messageCreate', async (message) => {
         new EmbedBuilder()
           .setTitle('🚔 KAMU DITANGKAP DAN DIHUKUM!')
           .setColor(C_RED)
-          .setDescription('Kamu ditangkap oleh **' + message.author.username + '** karena membawa barang terlarang!')
+          .setDescription('Kamu ditangkap oleh **' + message.author.username + '** atas rekam jejak transaksi ' + (sitaWeed > 0 ? 'Weed' : 'Meth') + ' terakhirmu!')
           .addFields(
             { name: '📦 Narkoba Disita', value: '🌿 Weed: ' + sitaWeed + ' pcs\n💎 Meth: ' + sitaMeth + ' pcs', inline: false },
             { name: '💸 Denda Dibayar', value: '-' + actualDenda.toLocaleString('id-ID') + ' BFL', inline: true },
             { name: '🔒 Waktu Penjara', value: waktuMenit + ' menit', inline: true }
           )
-          .setFooter({ text: 'Barang bukti telah disita dan kamu dimasukkan ke penjara.' })
+          .setFooter({ text: 'Sisa barang bukti telah disita dan kamu dimasukkan ke penjara.' })
       ]});
     } catch(e) {}
 
