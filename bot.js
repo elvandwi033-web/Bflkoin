@@ -3284,7 +3284,7 @@ client.on('messageCreate', async (message) => {
         )
     ]});
   }
-
+  
   // ======================== !jualdrug ========================
   if (command === 'jualdrug') {
     if (!user) return message.reply('❌ Belum terdaftar!');
@@ -3296,13 +3296,16 @@ client.on('messageCreate', async (message) => {
     const jumlah = parseInt(args[1]) || 1;
     if (!jenis || !DRUG_LIST[jenis]) return message.reply('❌ Format: `!jualdrug weed <jumlah>` atau `!jualdrug meth <jumlah>`');
 
+    // --- TAMBAHAN KODE: BATAS MAKSIMAL JUAL 20 ITEM ---
+    if (jumlah > 20) {
+      return message.reply('❌ Maksimal penjualan ' + DRUG_LIST[jenis].name + ' adalah 20 pcs untuk sekali transaksi!');
+    }
+    // --------------------------------------------------
+
     const drug = DRUG_LIST[jenis];
     if (!user.drugInv[jenis] || user.drugInv[jenis] < jumlah) {
       return message.reply('❌ Kamu hanya punya **' + (user.drugInv[jenis] || 0) + ' pcs ' + drug.name + '**! Kurang dari ' + jumlah + '.');
     }
-    // Rekam jejak untuk barang bukti polisi
-    user.lastJual = { jenis: jenis, jumlah: jumlah };
-
 
     // Roll WR — pakai gameConfig jika ada, fallback ke 75%
     const wrJualDrug = (db.gameConfig && db.gameConfig.wrJualdrug != null) ? db.gameConfig.wrJualdrug : DRUG_SELL_WR;
