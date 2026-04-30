@@ -7,7 +7,7 @@ const fs = require('fs');
 const DB_FILE    = process.env.DB_PATH || './database.json';
 const DANA_ADMIN = '085640241324';
 const PREFIX     = '!';
-const MIN_TARIK  = 50000;  // Minimum tarik IDR (dinaikan)
+const MIN_TARIK  = 15000;  // Minimum tarik IDR (dinaikan)
 const MIN_TOPUP  = 10000;
 
 // ── House edge & mekanisme bandar ──────────────────────────────
